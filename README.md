@@ -25,8 +25,8 @@ This is a simple Bash script to help mount a USB drive on a Linux system and sha
 Make the script executable and run it:
 
 ```bash
-chmod +x usb_mount_and_share_with_samba_check.sh
-./usb_mount_and_share_with_samba_check.sh
+chmod +x usb_mount_and_share.sh
+./usb_mount_and_share.sh
 ```
 
 Follow the on-screen prompts:
