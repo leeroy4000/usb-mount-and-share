@@ -9,8 +9,8 @@ echo
 read -p "Enter the device name to mount (e.g., sdb1): " DEVICE_NAME
 DEVICE="/dev/$DEVICE_NAME"
 
-UUID=$(/usr/sbin/blkid -s UUID -o value /dev/$DEVICE)
-FSTYPE=$(/usr/sbin/blkid -s TYPE -o value /dev/$DEVICE)
+UUID=$(lsblk -no UUID /dev/$DEVICE)
+FSTYPE=$(lsblk -no FSTYPE /dev/$DEVICE)
 
 if [ -z "$UUID" ] || [ -z "$FSTYPE" ]; then
   echo "Failed to detect UUID or filesystem type. Please check the device and try again."
