@@ -113,4 +113,4 @@ echo "Restarting Samba..."
 systemctl restart smbd
 
 echo "Samba share [$SHARE_NAME] is now active."
-echo "Access it from Windows using: \\your-server-ip\$SHARE_NAME"
+echo "Access it from the client using: \\your-server-ip\$SHARE_NAME"
