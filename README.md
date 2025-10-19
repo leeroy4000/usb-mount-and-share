@@ -1,6 +1,6 @@
 # USB Mount and Share Script
 
-This is a simple Bash script to help mount a USB drive on a Linux system and share it with Windows machines using Samba.
+This is a simple Bash script to help mount a USB drive on a Linux system and share it using Samba.
 
 ## 🔧 What It Does
 
