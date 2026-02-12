@@ -69,7 +69,7 @@ Windows (File Explorer):
 Linux/Mac (File Manager or Terminal):
   smb://192.168.1.7/data
 
-Username: nathan
+Username: jon doe
 Password: (the one you just set)
 ```
 
@@ -80,7 +80,7 @@ Open File Explorer and type the path in the address bar, then enter your credent
 Use your file manager's "Connect to Server" feature or mount from terminal:
 ```bash
 # Mount temporarily
-sudo mount -t cifs //192.168.1.7/data /mnt/share -o username=nathan
+sudo mount -t cifs //192.168.1.7/data /mnt/share -o username=jon doe
 
 # Or access via file manager
 nautilus smb://192.168.1.7/data
