@@ -6,8 +6,6 @@ Handles edge cases, validates configurations, creates timestamped backups before
 
 ## Why I Built This
 
-## Why I Built This
-
 Managing fstab entries and Samba shares by hand is tedious and error-prone, especially when dealing with multiple filesystems (ext4, vfat, ntfs) that each have different valid mount options. I built this to make the process repeatable and safe on any Linux system — no more editing config files by hand or hoping you remembered the right mount flags.
 ## What It Does
 
