@@ -1,12 +1,28 @@
 #!/bin/bash
+# =============================================================================
+# usb_mount_and_share.sh
+# Description: Mounts a USB/block device and shares it over the network
+#              via Samba. Handles fstab, permissions, and config validation.
+# Usage:       sudo ./usb_mount_and_share.sh
+# =============================================================================
 
 # Fail fast, safer word splitting
 set -euo pipefail
 IFS=$'\n\t'
 
+# --- Colors ---
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+err()  { echo -e "${RED}ERROR: $*${NC}" >&2; }
+warn() { echo -e "${YELLOW}WARNING: $*${NC}"; }
+ok()   { echo -e "${GREEN}$*${NC}"; }
+
 # --- Sanity / privileges check ---
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-  echo "This script must be run as root. Re-run with sudo or as root."
+  err "This script must be run as root. Re-run with sudo or as root."
   exit 1
 fi
 
@@ -27,21 +43,21 @@ fi
 
 # Verify the device exists and is a block device
 if [ ! -b "$DEVICE" ]; then
-  echo "Device $DEVICE does not exist or is not a block device. Please check and try again."
+  err "Device $DEVICE does not exist or is not a block device. Please check and try again."
   exit 1
 fi
 
 # Check if device is already mounted elsewhere
 CURRENT_MOUNT=$(lsblk -no MOUNTPOINT "$DEVICE" || true)
 if [ -n "$CURRENT_MOUNT" ]; then
-  echo "WARNING: $DEVICE is already mounted at $CURRENT_MOUNT"
+  warn "$DEVICE is already mounted at $CURRENT_MOUNT"
   read -p "Do you want to unmount it first? (y/n): " UNMOUNT_CHOICE
   if [[ "$UNMOUNT_CHOICE" =~ ^[Yy]$ ]]; then
     echo "Unmounting $CURRENT_MOUNT..."
     umount "$CURRENT_MOUNT"
-    echo "Unmounted successfully."
+    ok "Unmounted successfully."
   else
-    echo "Cannot proceed with device already mounted. Exiting."
+    err "Cannot proceed with device already mounted. Exiting."
     exit 1
   fi
 fi
@@ -51,7 +67,7 @@ UUID=$(lsblk -no UUID "$DEVICE" || true)
 FSTYPE=$(lsblk -no FSTYPE "$DEVICE" || true)
 
 if [ -z "$UUID" ] || [ -z "$FSTYPE" ]; then
-  echo "Failed to detect UUID or filesystem type. Here is device info for debugging:"
+  err "Failed to detect UUID or filesystem type. Here is device info for debugging:"
   lsblk -o NAME,UUID,FSTYPE,SIZE,MOUNTPOINT "$DEVICE" || true
   exit 1
 fi
@@ -71,7 +87,7 @@ esac
 
 read -p "Enter a short name for the mount point (e.g., media): " MOUNT_NAME
 if [ -z "$MOUNT_NAME" ]; then
-  echo "Mount name cannot be empty."
+  err "Mount name cannot be empty."
   exit 1
 fi
 MOUNT_PATH="/mnt/$MOUNT_NAME"
@@ -90,18 +106,18 @@ FSTAB_LINE="UUID=$UUID $MOUNT_PATH $FSTYPE $MOUNT_OPTS 0 0"
 FSTAB_MODIFIED=false
 if grep -qE "^UUID=$UUID[[:space:]]+$MOUNT_PATH[[:space:]]" /etc/fstab; then
   echo "An fstab entry for this device and mount path already exists."
-  
+
   # Check if it has invalid options for the filesystem type
   if [[ "$FSTYPE" =~ ^(ext4|xfs|btrfs)$ ]]; then
     if grep -E "^UUID=$UUID[[:space:]]+$MOUNT_PATH[[:space:]]" /etc/fstab | grep -q "uid=\|gid="; then
-      echo "Found invalid uid/gid options for $FSTYPE filesystem."
+      warn "Found invalid uid/gid options for $FSTYPE filesystem."
       read -p "Update the entry to remove invalid options? (y/n): " UPDATE_CHOICE
       if [[ "$UPDATE_CHOICE" =~ ^[Yy]$ ]]; then
         echo "Backing up /etc/fstab to $FSTAB_BACKUP..."
         cp /etc/fstab "$FSTAB_BACKUP"
         ESCAPED_MOUNT_PATH=$(echo "$MOUNT_PATH" | sed 's/[\/&]/\\&/g')
         sed -i "/^UUID=$UUID[[:space:]]\+$ESCAPED_MOUNT_PATH[[:space:]]\+$FSTYPE[[:space:]]/s/,\?uid=[0-9]\+//g; /^UUID=$UUID[[:space:]]\+$ESCAPED_MOUNT_PATH[[:space:]]\+$FSTYPE[[:space:]]/s/,\?gid=[0-9]\+//g" /etc/fstab
-        echo "Cleaned up invalid uid/gid options in /etc/fstab."
+        ok "Cleaned up invalid uid/gid options in /etc/fstab."
         FSTAB_MODIFIED=true
       fi
     else
@@ -111,31 +127,31 @@ if grep -qE "^UUID=$UUID[[:space:]]+$MOUNT_PATH[[:space:]]" /etc/fstab; then
     echo "Entry looks correct. Using existing entry."
   fi
 elif grep -qE "^UUID=$UUID[[:space:]]" /etc/fstab; then
-  echo "WARNING: A fstab entry for this device exists with a different mount path."
+  warn "A fstab entry for this device exists with a different mount path."
   grep -E "^UUID=$UUID[[:space:]]" /etc/fstab
   read -p "Do you want to update it to use $MOUNT_PATH instead? (y/n): " UPDATE_CHOICE
   if [[ "$UPDATE_CHOICE" =~ ^[Yy]$ ]]; then
     echo "Backing up /etc/fstab to $FSTAB_BACKUP..."
     cp /etc/fstab "$FSTAB_BACKUP"
     sed -i "/^UUID=$UUID[[:space:]]/c\\$FSTAB_LINE" /etc/fstab
-    echo "Updated fstab entry to use $MOUNT_PATH."
+    ok "Updated fstab entry to use $MOUNT_PATH."
     FSTAB_MODIFIED=true
   else
-    echo "Please resolve the conflict manually in /etc/fstab. Exiting."
+    err "Please resolve the conflict manually in /etc/fstab. Exiting."
     exit 1
   fi
 elif grep -qE "^[^#]*[[:space:]]+$MOUNT_PATH[[:space:]]" /etc/fstab; then
-  echo "WARNING: A fstab entry for this mount path exists with a different device."
+  warn "A fstab entry for this mount path exists with a different device."
   grep -E "^[^#]*[[:space:]]+$MOUNT_PATH[[:space:]]" /etc/fstab
   read -p "Do you want to replace it with the new device? (y/n): " UPDATE_CHOICE
   if [[ "$UPDATE_CHOICE" =~ ^[Yy]$ ]]; then
     echo "Backing up /etc/fstab to $FSTAB_BACKUP..."
     cp /etc/fstab "$FSTAB_BACKUP"
     sed -i "\|[[:space:]]\+$MOUNT_PATH[[:space:]]|c\\$FSTAB_LINE" /etc/fstab
-    echo "Updated fstab entry for $MOUNT_PATH."
+    ok "Updated fstab entry for $MOUNT_PATH."
     FSTAB_MODIFIED=true
   else
-    echo "Please resolve the conflict manually in /etc/fstab. Exiting."
+    err "Please resolve the conflict manually in /etc/fstab. Exiting."
     exit 1
   fi
 else
@@ -158,7 +174,7 @@ if mount | grep -q "on $MOUNT_PATH "; then
 else
   echo "Mounting..."
   if ! mount "$MOUNT_PATH" 2>&1; then
-    echo "Mount failed. Please check the error above."
+    err "Mount failed. Please check the error above."
     exit 1
   fi
 fi
@@ -180,10 +196,10 @@ fi
 # --- SAMBA CONFIGURATION ---
 
 read -p "Enter a name for the Samba share (e.g., media): " SHARE_NAME
-read -p "Enter the Linux username to grant access (e.g., user1): " SAMBA_USER
+read -p "Enter the Linux username to grant access (e.g., jdoe): " SAMBA_USER
 
 if ! id -u "$SAMBA_USER" >/dev/null 2>&1; then
-  echo "Linux user $SAMBA_USER does not exist. Create the user first or choose another user."
+  err "Linux user '$SAMBA_USER' does not exist. Create the user first or choose another user."
   exit 1
 fi
 
@@ -198,18 +214,18 @@ if [[ "$FSTYPE" =~ ^(ext4|xfs|btrfs)$ ]]; then
       echo "Setting ownership..."
       chown -R "$SAMBA_USER:$SAMBA_USER" "$MOUNT_PATH"
       chmod -R 775 "$MOUNT_PATH"
-      echo "Ownership updated."
+      ok "Ownership updated."
     else
-      echo "WARNING: You may need to manually adjust permissions for Samba to work correctly."
+      warn "You may need to manually adjust permissions for Samba to work correctly."
     fi
   else
-    echo "Ownership is already correct."
+    ok "Ownership is already correct."
   fi
 fi
 
 # Avoid duplicate Samba share entries
 if grep -q "^\[$SHARE_NAME\]" /etc/samba/smb.conf; then
-  echo "A Samba share named [$SHARE_NAME] already exists in smb.conf."
+  warn "A Samba share named [$SHARE_NAME] already exists in smb.conf."
   read -p "Do you want to update it? (y/n): " UPDATE_SAMBA
   if [[ "$UPDATE_SAMBA" =~ ^[Yy]$ ]]; then
     echo "Backing up smb.conf..."
@@ -218,7 +234,7 @@ if grep -q "^\[$SHARE_NAME\]" /etc/samba/smb.conf; then
     sed -i "/^\[$SHARE_NAME\]/,/^$/d" /etc/samba/smb.conf
     echo "Removed old [$SHARE_NAME] entry."
   else
-    echo "Please choose a different share name or edit /etc/samba/smb.conf manually. Exiting."
+    err "Please choose a different share name or edit /etc/samba/smb.conf manually. Exiting."
     exit 1
   fi
 fi
@@ -240,27 +256,27 @@ EOF
 # Test Samba configuration
 echo "Testing Samba configuration..."
 if ! testparm -s /etc/samba/smb.conf >/dev/null 2>&1; then
-  echo "ERROR: Samba configuration is invalid. Rolling back..."
+  err "Samba configuration is invalid. Rolling back..."
   if [ -f "/etc/samba/smb.conf.bak.$TS" ]; then
     mv "/etc/samba/smb.conf.bak.$TS" /etc/samba/smb.conf
   fi
-  echo "Configuration rolled back. Please check your settings."
+  err "Configuration rolled back. Please check your settings."
   exit 1
 fi
-echo "Samba configuration is valid."
+ok "Samba configuration is valid."
 
 echo "Setting Samba password for user $SAMBA_USER..."
 smbpasswd -a "$SAMBA_USER"
 
 echo "Restarting Samba..."
 if ! systemctl restart smbd; then
-  echo "ERROR: Failed to restart Samba. Check 'systemctl status smbd' for details."
+  err "Failed to restart Samba. Check 'systemctl status smbd' for details."
   exit 1
 fi
 
 echo ""
 echo "============================================"
-echo "SUCCESS! Setup complete."
+ok "SUCCESS! Setup complete."
 echo "============================================"
 echo "Mount point: $MOUNT_PATH"
 echo "Samba share: [$SHARE_NAME]"
@@ -282,7 +298,7 @@ if [ -n "$IPS" ]; then
 else
   echo "Windows: \\\\<server-ip>\\$SHARE_NAME"
   echo "Linux/Mac: smb://<server-ip>/$SHARE_NAME"
-  echo "  (Could not detect IP address automatically)"
+  warn "Could not detect IP address automatically."
 fi
 echo ""
 echo "Username: $SAMBA_USER"
