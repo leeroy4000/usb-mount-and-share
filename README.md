@@ -2,12 +2,12 @@
 
 A robust Bash script that automates mounting USB drives (or any block device) on Linux and sharing them over the network using Samba. Handles edge cases, validates configurations, and provides clear cross-platform connection instructions.
 
-## 🔧 What It Does
+## What It Does
 
 1. **Lists available drives** using `lsblk` with detailed information
 2. **Checks for existing mounts** and offers to unmount if necessary
 3. **Detects filesystem type** and applies appropriate mount options
-4. **Creates mount point** and updates `/etc/fstab` for automatic mounting on boot
+4. **Creates mount point** and updates `/etc/fstab` for persistent mounting across reboots
 5. **Handles duplicate entries** intelligently:
    - Detects and removes invalid options (e.g., uid/gid on ext4)
    - Offers to update existing entries instead of failing
@@ -18,30 +18,29 @@ A robust Bash script that automates mounting USB drives (or any block device) on
 7. **Installs Samba** if not already present
 8. **Configures Samba share** with proper authentication
 9. **Validates configuration** using `testparm` before applying changes
-10. **Provides connection details** for both Windows and Linux/Mac clients with actual server IP addresses
+10. **Provides connection details** for Windows, Linux, and Mac clients with actual server IP addresses
 
-## 📋 Features
+## Features
 
-- **Error recovery**: Validates Samba config and rolls back on failure
-- **Interactive**: Prompts for confirmation on destructive operations
-- **Safe**: Creates timestamped backups of `/etc/fstab` and `smb.conf`
-- **Smart**: Detects filesystem types and applies correct mount options
-- **Cross-platform**: Shows connection strings for Windows, Linux, and Mac
-- **Informative**: Displays actual server IP addresses for easy access
+- **Error recovery** — validates Samba config and rolls back on failure
+- **Interactive** — prompts for confirmation on destructive operations
+- **Safe** — creates timestamped backups of `/etc/fstab` and `smb.conf`
+- **Smart** — detects filesystem types and applies correct mount options
+- **Colored output** — errors in red, warnings in yellow, success in green
 
-## 📝 Requirements
+## Requirements
 
-- Linux system with `bash`, `lsblk`, `mount`, `sed`, and `systemd`
+- Linux system with `bash`, `lsblk`, `mount`, and `sed`
 - `sudo` or root privileges
-- Internet access (for Samba installation, if needed)
+- Internet access (for Samba installation, if not already present)
 
-## 🚀 Usage
+## Usage
 
 Make the script executable and run it with sudo:
 
 ```bash
-chmod +x usb_mount_and_share_improved.sh
-sudo ./usb_mount_and_share_improved.sh
+chmod +x usb_mount_and_share.sh
+sudo ./usb_mount_and_share.sh
 ```
 
 Follow the interactive prompts:
@@ -54,9 +53,7 @@ Follow the interactive prompts:
 6. **Enter the Linux username** to grant access
 7. **Set a Samba password** for that user
 
-The script will display connection information for both Windows and Linux/Mac clients when complete.
-
-## 📤 Accessing the Share
+## Accessing the Share
 
 After running the script, you'll see output like:
 
@@ -69,35 +66,35 @@ Windows (File Explorer):
 Linux/Mac (File Manager or Terminal):
   smb://192.168.1.7/data
 
-Username: jon doe
+Username: jdoe
 Password: (the one you just set)
 ```
 
 ### Windows
-Open File Explorer and type the path in the address bar, then enter your credentials.
+Open File Explorer, type the path in the address bar, and enter your credentials.
 
 ### Linux/Mac
-Use your file manager's "Connect to Server" feature or mount from terminal:
+Use your file manager's "Connect to Server" feature, or mount from the terminal:
+
 ```bash
 # Mount temporarily
-sudo mount -t cifs //192.168.1.7/data /mnt/share -o username=jon doe
+sudo mount -t cifs //192.168.1.7/data /mnt/share -o username="jdoe"
 
 # Or access via file manager
 nautilus smb://192.168.1.7/data
 ```
 
-## 🛑 Important Notes
+## Important Notes
 
-- **Verify the device** carefully before proceeding—selecting the wrong device could cause data loss
-- **System file modifications**: This script modifies:
+- **Verify the device** carefully before proceeding — selecting the wrong device could cause data loss
+- **System files modified** by this script:
   - `/etc/fstab` (persists mount across reboots)
   - `/etc/samba/smb.conf` (adds network share)
-- **Automatic backups** are created with timestamps:
+- **Automatic backups** are created with timestamps before any changes:
   - `/etc/fstab.bak.YYYYMMDDHHMMSS`
   - `/etc/samba/smb.conf.bak.YYYYMMDDHHMMSS`
-- **Existing configurations**: The script detects and offers to update existing entries instead of creating duplicates
-- **Production systems**: Review the script and test on non-critical systems first
+- **Production systems** — review the script and test on non-critical systems first
 
-## 📄 License
+## License
 
-Feel free to use and modify as needed.
+MIT — see [LICENSE](LICENSE) for details.
