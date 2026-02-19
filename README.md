@@ -1,6 +1,12 @@
-# USB Mount and Share Script
+# Block Device Mount & Samba Share Script
 
-A robust Bash script that automates mounting USB drives (or any block device) on Linux and sharing them over the network using Samba. Handles edge cases, validates configurations, and provides clear cross-platform connection instructions.
+A robust Bash script that automates mounting any block device (USB drive, secondary disk, LVM volume) on Linux and sharing it over the network via Samba. Built for homelab use — specifically to quickly expose storage from a Proxmox host to other VMs and clients on the network.
+
+Handles edge cases, validates configurations, creates timestamped backups before any changes, and provides clear cross-platform connection instructions.
+
+## Why I Built This
+
+Managing fstab entries and Samba shares by hand is tedious and error-prone, especially when dealing with multiple filesystems (ext4, vfat, ntfs) that each have different valid mount options. I built this to make the process repeatable and safe across my Proxmox homelab nodes.
 
 ## What It Does
 
@@ -37,7 +43,6 @@ A robust Bash script that automates mounting USB drives (or any block device) on
 ## Usage
 
 Make the script executable and run it with sudo:
-
 ```bash
 chmod +x usb_mount_and_share.sh
 sudo ./usb_mount_and_share.sh
@@ -53,35 +58,64 @@ Follow the interactive prompts:
 6. **Enter the Linux username** to grant access
 7. **Set a Samba password** for that user
 
-## Accessing the Share
-
-After running the script, you'll see output like:
-
+## Sample Output
 ```
+Available drives:
+NAME   SIZE FSTYPE LABEL  MOUNTPOINT
+sda    120G
+sda1   120G ext4          /
+sdb    500G
+sdb1   500G ext4   backup
+
+Enter the device name to mount (e.g., sdb1 or /dev/sdb1): sdb1
+Enter a short name for the mount point (e.g., media): backup
+Creating mount point at /mnt/backup...
+Adding to /etc/fstab: UUID=a1b2c3d4-... /mnt/backup ext4 defaults 0 0
+Reloading systemd daemon...
+Mounting...
+Samba is already installed.
+
+Enter a name for the Samba share (e.g., media): backup
+Enter the Linux username to grant access (e.g., jdoe): jdoe
+Ownership is already correct.
+Adding Samba share to /etc/samba/smb.conf...
+Testing Samba configuration...
+Samba configuration is valid.
+Setting Samba password for user jdoe...
+Restarting Samba...
+
+============================================
+SUCCESS! Setup complete.
+============================================
+Mount point: /mnt/backup
+Samba share: [backup]
+
 Access from other computers:
 
 Windows (File Explorer):
-  \\192.168.1.7\data
+  \\192.168.1.7\backup
 
 Linux/Mac (File Manager or Terminal):
-  smb://192.168.1.7/data
+  smb://192.168.1.7/backup
 
 Username: jdoe
 Password: (the one you just set)
+============================================
 ```
+
+## Accessing the Share
 
 ### Windows
 Open File Explorer, type the path in the address bar, and enter your credentials.
 
 ### Linux/Mac
 Use your file manager's "Connect to Server" feature, or mount from the terminal:
-
 ```bash
 # Mount temporarily
-sudo mount -t cifs //192.168.1.7/data /mnt/share -o username="jdoe"
+sudo mount -t cifs //192.168.1.7/backup /mnt/share -o username="jdoe"
 
 # Or access via file manager
-nautilus smb://192.168.1.7/data
+nautilus smb://192.168.1.7/backup
 ```
 
 ## Important Notes
